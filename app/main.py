@@ -36,10 +36,9 @@ async def get_posts():
                                             # Svi postovi
     return {"data": my_posts}
 
-                                # post metoda, pravi se variable payload koji je dictionary json-a iz body-ja postmana.
+                                # Post metoda, pravi se variable payload koji je dictionary json-a iz body-ja postmana.
                                 # Mozemo ga direktno printovati ili postovati na ./createposts
-
-#title str, content str
+                                # Title str, content str
 @app.post("/posts",  status_code = status.HTTP_201_CREATED)                              
 def create_post(post: Post):
     post_dict = post.dict()                     # Pravljenje postova
