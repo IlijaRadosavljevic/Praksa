@@ -58,8 +58,6 @@ def get_post(id: int, response: Response):                          # Pretraziva
     post = find_post(id)
     if not post: 
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f" Post with id {id} was not found")
-        # response.status_code = status.HTTP_404_NOT_FOUND
-        # return {"message": f"post with id {id} was not found"}
     return {"post_detail": post} 
 
 
