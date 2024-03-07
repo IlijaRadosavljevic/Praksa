@@ -3,6 +3,9 @@ from fastapi.params import Body
 from pydantic import BaseModel
 from typing import Optional
 from random import randrange
+import psycopg2
+from psycopg2.extras import RealDictCursor
+import time
 app = FastAPI()                         
 
                     
@@ -25,7 +28,21 @@ class Post(BaseModel):
     title: str
     content: str
     published: bool = True
-    rating: Optional[int] = None
+
+# Pravljenje while petlje kako bi se usled neuspele konekcije sa bazon na svake 2 sekunde petlja ponovo izvrsi sve dok se ne ispravi problem.
+# Testirao sam sa menjanjem sifre i petlja se izvrasava sve dok nisam ukucao pravilnu sifru i sacuvao
+while True:
+
+    try:
+        conn = psycopg2.connect(host= 'localhost', database='fastapi', user='postgres', password='Ilija2002', cursor_factory= RealDictCursor)
+        cursor = conn.cursor()
+        print('Database connection was succesfull!')
+        break
+    except Exception as e:
+        print('Database connection failed :(')
+        print("Error: ", e)
+        time.sleep(2)
+
                     
 # Pocetna poruka
 @app.get("/")                           
@@ -82,3 +99,4 @@ def update_post(id: int, post: Post):
     post_dict['id'] = id 
     my_posts[index] = post_dict
     return {'post': post_dict}
+
