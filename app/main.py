@@ -91,8 +91,9 @@ def create_post(post: Post):
 # {id} uzima latest koji nije integer
 @app.get("/posts/latest")
 def get_latest_post():
-    post = my_posts[len(my_posts) - 1]
-    return {"detail": post}
+    cursor.execute("""SELECT * FROM posts where created_at=( SELECT MAX(created_at) FROM posts)""")
+    l_post = cursor.fetchone()
+    return {"detail": l_post}
 
 
 # Pretrazivanje postova po id
