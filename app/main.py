@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Response, status, HTTPException
+from fastapi import FastAPI, Response, status, HTTPException, Depends
 from fastapi.params import Body
 from pydantic import BaseModel
 from typing import Optional
@@ -6,6 +6,19 @@ from random import randrange
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import time
+from . import models
+from .database import engine, get_db
+from sqlalchemy.orm import Session
+
+
+models.Base.metadata.create_all(bind = engine)
+
+# def get_db():
+#     db = SessionLocal()
+#     try:
+#         yield db
+#     finally:
+#         db.close()
 
 app = FastAPI()
 
@@ -47,7 +60,7 @@ while True:
             database="fastapi",
             user="postgres",
             password="Ilija2002",
-            cursor_factory = RealDictCursor,
+            cursor_factory=RealDictCursor,
         )
         cursor = conn.cursor()
         print("Database connection was succesfull!")
@@ -63,13 +76,20 @@ while True:
 async def root():
     return {"message": "Welcome to my Python"}
 
+# Test endpoint za pristup bazi podataka preko Pytona bez direktnih SQL query-ja
+@app.get("/sqlalchemy")
+def test_posts(db: Session = Depends(get_db)):
+    posts = db.query(models.Post).all()
+    return{"data": posts}
 
-# Prikaz svih postova pomocu get metode
-# Uzimanje postova iz tabele posts
+
+
+# Modifikovani endpoint
 @app.get("/posts")
-async def get_posts():
-    cursor.execute("""SELECT * FROM posts """)
-    posts = cursor.fetchall()
+async def get_posts(db: Session = Depends(get_db)):
+    # cursor.execute("""SELECT * FROM posts """)
+    # posts = cursor.fetchall()
+    posts = db.query(models.Post).all()
     return {"data": posts}
 
 
@@ -77,13 +97,18 @@ async def get_posts():
 # Mozemo ga direktno printovati ili postovati na ./createposts
 # Prosledjivanje podataka u postgres
 @app.post("/posts", status_code=status.HTTP_201_CREATED)
-def create_post(post: Post):
-    cursor.execute(
-        """INSERT INTO posts (title, content, published) VALUES (%s, %s, %s) RETURNING * """,
-        (post.title, post.content, post.published),
-    )
-    new_post = cursor.fetchone()
-    conn.commit()
+def create_post(post: Post, db: Session = Depends(get_db)):
+    # cursor.execute(
+    #     """INSERT INTO posts (title, content, published) VALUES (%s, %s, %s) RETURNING * """,
+    #     (post.title, post.content, post.published),
+    # )
+    # new_post = cursor.fetchone()
+    # conn.commit()
+    ### new_post=models.Post(title=post.title, content=post.content, published=post.published) ###
+    new_post=models.Post(**post.dict())
+    db.add(new_post)
+    db.commit()
+    db.refresh(new_post)
     return {"data": new_post}
 
 
@@ -91,16 +116,19 @@ def create_post(post: Post):
 # {id} uzima latest koji nije integer
 @app.get("/posts/latest")
 def get_latest_post():
-    cursor.execute("""SELECT * FROM posts where created_at=( SELECT MAX(created_at) FROM posts)""")
+    cursor.execute(
+        """SELECT * FROM posts where created_at=( SELECT MAX(created_at) FROM posts)"""
+    )
     l_post = cursor.fetchone()
     return {"detail": l_post}
 
 
 # Pretrazivanje postova po id
 @app.get("/posts/{id}")
-def get_post(id: int):
-    cursor.execute("""SELECT * FROM posts where id = %s """, str(id))
-    post = cursor.fetchone()
+def get_post(id: int, db: Session = Depends(get_db)):
+    # cursor.execute("""SELECT * FROM posts where id = %s """, str(id))
+    # post = cursor.fetchone()
+    post = db.query(models.Post).filter(models.Post.id == id).first()
     if not post:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -112,49 +140,54 @@ def get_post(id: int):
 # Brisanje posta koji ima uneti id
 # Dodatno brisanje pretrazenog id-a iz baze podataka
 @app.delete("/posts/{id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_post(
-    id: int,
-):
-    cursor.execute("""DELETE FROM posts where id = %s  RETURNING *""", str(id))
-    deleted_post = cursor.fetchone()
-    conn.commit()
-    if deleted_post == None:
+def delete_post(id: int, db: Session = Depends(get_db)):
+    # cursor.execute("""DELETE FROM posts where id = %s  RETURNING *""", str(id))
+    # deleted_post = cursor.fetchone()
+    # conn.commit()
+    deleted_post = db.query(models.Post).filter(models.Post.id == id)
+    if deleted_post.first() == None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f" Post with id {id} does not exist",
         )
+    deleted_post.delete(synchronize_session=False)
+    db.commit() 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # Azuriranje posta koji ima uneti id
 # Dodatno azuriranje baze podataka
 @app.put("/posts/{id}")
-def update_post(id: int, post: Post):
-    cursor.execute(
-        """UPDATE posts SET title = %s, content = %s, published = %s WHERE id = %s RETURNING *""",
-        (post.title, post.content, post.published, str(id)),
-    )
-    updated_post = cursor.fetchone()
-    conn.commit()
-    if updated_post == None:
+def update_post(id: int, post: Post, db: Session = Depends(get_db)):
+    # cursor.execute(
+    #     """UPDATE posts SET title = %s, content = %s, published = %s WHERE id = %s RETURNING *""",
+    #     (post.title, post.content, post.published, str(id)),
+    # )
+    # updated_post = cursor.fetchone()
+    # conn.commit()
+    post_query = db.query(models.Post).filter(models.Post.id == id)
+    pos= post_query.first()
+    if pos == None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f" Post with id {id} does not exist",
         )
-    return {"data": updated_post}
+    post_query.update(post.dict(), synchronize_session=False)
+    db.commit()
+    return {"data": post_query.first()}
 
 
-@app.patch("/posts/{id}")
-def update_post(id: int, post: Post):
-    cursor.execute(
-        """UPDATE posts SET title = %s  WHERE id = %s RETURNING *""",
-        (post.title, str(id)),
-    )
-    updat_post = cursor.fetchone()
-    conn.commit()
-    if updat_post == None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f" Post with id {id} does not exist",
-        )
-    return {"data": updat_post}
+# @app.patch("/posts/{id}")
+# def update_post(id: int, post: Post):
+#     cursor.execute(
+#         """UPDATE posts SET title = %s  WHERE id = %s RETURNING *""",
+#         (post.title, str(id)),
+#     )
+#     updat_post = cursor.fetchone()
+#     conn.commit()
+#     if updat_post == None:
+#         raise HTTPException(
+#             status_code=status.HTTP_404_NOT_FOUND,
+#             detail=f" Post with id {id} does not exist",
+#         )
+#     return {"data": updat_post}
