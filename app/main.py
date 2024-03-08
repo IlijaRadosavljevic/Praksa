@@ -9,6 +9,8 @@ import time
 from . import models
 from .database import engine, get_db
 from sqlalchemy.orm import Session
+from sqlalchemy import desc
+
 
 
 models.Base.metadata.create_all(bind = engine)
@@ -114,12 +116,14 @@ def create_post(post: Post, db: Session = Depends(get_db)):
 
 # Uzimanje poslednjeg dodatog posta, mora se staviti iznad pretrazivanja po id jer za vrednost
 # {id} uzima latest koji nije integer
+# Prikazati najnoviji post uz pomoc SQLAlchemy
 @app.get("/posts/latest")
-def get_latest_post():
-    cursor.execute(
-        """SELECT * FROM posts where created_at=( SELECT MAX(created_at) FROM posts)"""
-    )
-    l_post = cursor.fetchone()
+def get_latest_post(db: Session = Depends(get_db)):
+    l_post = db.query(models.Post).order_by(desc('created_at')).first()
+    # cursor.execute(
+    #     """SELECT * FROM posts where created_at=( SELECT MAX(created_at) FROM posts)"""
+    # )
+    # l_post = cursor.fetchone()
     return {"detail": l_post}
 
 
@@ -177,17 +181,17 @@ def update_post(id: int, post: Post, db: Session = Depends(get_db)):
     return {"data": post_query.first()}
 
 
-# @app.patch("/posts/{id}")
-# def update_post(id: int, post: Post):
-#     cursor.execute(
-#         """UPDATE posts SET title = %s  WHERE id = %s RETURNING *""",
-#         (post.title, str(id)),
-#     )
-#     updat_post = cursor.fetchone()
-#     conn.commit()
-#     if updat_post == None:
-#         raise HTTPException(
-#             status_code=status.HTTP_404_NOT_FOUND,
-#             detail=f" Post with id {id} does not exist",
-#         )
-#     return {"data": updat_post}
+@app.patch("/posts/{id}")
+def update_post(id: int, post: Post):
+    cursor.execute(
+        """UPDATE posts SET title = %s  WHERE id = %s RETURNING *""",
+        (post.title, str(id)),
+    )
+    updat_post = cursor.fetchone()
+    conn.commit()
+    if updat_post == None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f" Post with id {id} does not exist",
+        )
+    return {"data": updat_post}
