@@ -1,16 +1,15 @@
 from fastapi import FastAPI, Response, status, HTTPException, Depends
 from fastapi.params import Body
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from random import randrange
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import time
-from . import models
+from . import models, schemas
 from .database import engine, get_db
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
-
 
 
 models.Base.metadata.create_all(bind = engine)
@@ -45,11 +44,6 @@ def find_index_post(id):
             return i
 
 
-# Pravljenje objekta klase Post
-class Post(BaseModel):
-    title: str
-    content: str
-    published: bool = True
 
 
 # Pravljenje while petlje kako bi se usled neuspele konekcije sa bazon na svake 2 sekunde petlja ponovo izvrsi sve dok se ne ispravi problem.
@@ -82,24 +76,25 @@ async def root():
 @app.get("/sqlalchemy")
 def test_posts(db: Session = Depends(get_db)):
     posts = db.query(models.Post).all()
-    return{"data": posts}
+    return posts
+
 
 
 
 # Modifikovani endpoint
-@app.get("/posts")
+@app.get("/posts", response_model=List[schemas.Post])
 async def get_posts(db: Session = Depends(get_db)):
     # cursor.execute("""SELECT * FROM posts """)
     # posts = cursor.fetchall()
     posts = db.query(models.Post).all()
-    return {"data": posts}
+    return posts
 
 
 # Post metoda, pravi se variable payload koji je dictionary json-a iz body-ja postmana.
 # Mozemo ga direktno printovati ili postovati na ./createposts
 # Prosledjivanje podataka u postgres
-@app.post("/posts", status_code=status.HTTP_201_CREATED)
-def create_post(post: Post, db: Session = Depends(get_db)):
+@app.post("/posts", status_code=status.HTTP_201_CREATED, response_model=schemas.Post)
+def create_post(post: schemas.PostCreate, db: Session = Depends(get_db)):
     # cursor.execute(
     #     """INSERT INTO posts (title, content, published) VALUES (%s, %s, %s) RETURNING * """,
     #     (post.title, post.content, post.published),
@@ -111,7 +106,7 @@ def create_post(post: Post, db: Session = Depends(get_db)):
     db.add(new_post)
     db.commit()
     db.refresh(new_post)
-    return {"data": new_post}
+    return new_post
 
 
 # Uzimanje poslednjeg dodatog posta, mora se staviti iznad pretrazivanja po id jer za vrednost
@@ -126,9 +121,19 @@ def get_latest_post(db: Session = Depends(get_db)):
     # l_post = cursor.fetchone()
     return {"detail": l_post}
 
+# Prikaz svih unetih postova koji sadrze unetu rec u title
+@app.get("/posts/title/{tmp}",response_model = list[schemas.Post])
+def get_posts(tmp: str, db: Session = Depends(get_db)): 
+    post = db.query(models.Post).filter(models.Post.title.contains(tmp)).all()
+    if post == None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f" Post with title {tmp} was not found",
+        )
+    return post
 
 # Pretrazivanje postova po id
-@app.get("/posts/{id}")
+@app.get("/posts/{id}", response_model=schemas.Post)
 def get_post(id: int, db: Session = Depends(get_db)):
     # cursor.execute("""SELECT * FROM posts where id = %s """, str(id))
     # post = cursor.fetchone()
@@ -138,7 +143,7 @@ def get_post(id: int, db: Session = Depends(get_db)):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f" Post with id {id} was not found",
         )
-    return {"post_detail": post}
+    return post
 
 
 # Brisanje posta koji ima uneti id
@@ -161,8 +166,8 @@ def delete_post(id: int, db: Session = Depends(get_db)):
 
 # Azuriranje posta koji ima uneti id
 # Dodatno azuriranje baze podataka
-@app.put("/posts/{id}")
-def update_post(id: int, post: Post, db: Session = Depends(get_db)):
+@app.put("/posts/{id}", response_model=schemas.Post)
+def update_post(id: int, post: schemas.PostCreate, db: Session = Depends(get_db)):
     # cursor.execute(
     #     """UPDATE posts SET title = %s, content = %s, published = %s WHERE id = %s RETURNING *""",
     #     (post.title, post.content, post.published, str(id)),
@@ -178,11 +183,11 @@ def update_post(id: int, post: Post, db: Session = Depends(get_db)):
         )
     post_query.update(post.dict(), synchronize_session=False)
     db.commit()
-    return {"data": post_query.first()}
+    return post_query.first()
 
 
 @app.patch("/posts/{id}")
-def update_post(id: int, post: Post):
+def update_post(id: int, post: schemas.PostPatch):
     cursor.execute(
         """UPDATE posts SET title = %s  WHERE id = %s RETURNING *""",
         (post.title, str(id)),
@@ -194,4 +199,6 @@ def update_post(id: int, post: Post):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f" Post with id {id} does not exist",
         )
-    return {"data": updat_post}
+    return updat_post
+
+
