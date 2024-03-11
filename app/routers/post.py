@@ -5,10 +5,7 @@ from sqlalchemy.orm import Session
 from ..database import engine, get_db
 from sqlalchemy import desc
 
-router = APIRouter(
-    prefix='/posts',
-    tags= ['Posts']
-)
+router = APIRouter(prefix="/posts", tags=["Posts"])
 
 
 # Test endpoint za pristup bazi podataka preko Pytona bez direktnih SQL query-ja
@@ -16,8 +13,6 @@ router = APIRouter(
 def test_posts(db: Session = Depends(get_db)):
     posts = db.query(models.Post).all()
     return posts
-
-
 
 
 # Modifikovani endpoint
@@ -32,7 +27,7 @@ async def get_posts(db: Session = Depends(get_db)):
 # Prosledjivanje podataka u postgres
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=schemas.Post)
 def create_post(post: schemas.PostCreate, db: Session = Depends(get_db)):
-    new_post=models.Post(**post.dict())
+    new_post = models.Post(**post.dict())
     db.add(new_post)
     db.commit()
     db.refresh(new_post)
@@ -44,12 +39,13 @@ def create_post(post: schemas.PostCreate, db: Session = Depends(get_db)):
 # Prikazati najnoviji post uz pomoc SQLAlchemy
 @router.get("/latest")
 def get_latest_post(db: Session = Depends(get_db)):
-    l_post = db.query(models.Post).order_by(desc('created_at')).first()
+    l_post = db.query(models.Post).order_by(desc("created_at")).first()
     return {"detail": l_post}
 
+
 # Prikaz svih unetih postova koji sadrze unetu rec u title
-@router.get("/title/{tmp}",response_model = list[schemas.Post])
-def get_posts(tmp: str, db: Session = Depends(get_db)): 
+@router.get("/title/{tmp}", response_model=list[schemas.Post])
+def get_posts(tmp: str, db: Session = Depends(get_db)):
     post = db.query(models.Post).filter(models.Post.title.contains(tmp)).all()
     if post == None:
         raise HTTPException(
@@ -57,6 +53,7 @@ def get_posts(tmp: str, db: Session = Depends(get_db)):
             detail=f" Post with title {tmp} was not found",
         )
     return post
+
 
 # Pretrazivanje postova po id
 @router.get("/{id}", response_model=schemas.Post)
@@ -81,7 +78,7 @@ def delete_post(id: int, db: Session = Depends(get_db)):
             detail=f" Post with id {id} does not exist",
         )
     deleted_post.delete(synchronize_session=False)
-    db.commit() 
+    db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -90,7 +87,7 @@ def delete_post(id: int, db: Session = Depends(get_db)):
 @router.put("/{id}", response_model=schemas.Post)
 def update_post(id: int, post: schemas.PostCreate, db: Session = Depends(get_db)):
     post_query = db.query(models.Post).filter(models.Post.id == id)
-    pos= post_query.first()
+    pos = post_query.first()
     if pos == None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -99,4 +96,3 @@ def update_post(id: int, post: schemas.PostCreate, db: Session = Depends(get_db)
     post_query.update(post.dict(), synchronize_session=False)
     db.commit()
     return post_query.first()
-

@@ -10,10 +10,10 @@ from . import models, schemas, utils
 from .database import engine, get_db
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
-from .routers import post, user
+from .routers import post, user, auth
 
 
-models.Base.metadata.create_all(bind = engine)
+models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
@@ -38,8 +38,6 @@ def find_index_post(id):
             return i
 
 
-
-
 # Pravljenje while petlje kako bi se usled neuspele konekcije sa bazon na svake 2 sekunde petlja ponovo izvrsi sve dok se ne ispravi problem.
 # Testirao sam sa menjanjem sifre i petlja se izvrasava sve dok nisam ukucao pravilnu sifru i sacuvao
 while True:
@@ -60,9 +58,12 @@ while True:
         print("Error: ", e)
         time.sleep(2)
 
-        
-# Pokazuje na sve post endopointe u post folderu
-app.include_router(post.router) 
 
-# Pokazuje na sve user endopointe u user folderu
+# Pokazuje na sve post endopointe u post direktorijumu
+app.include_router(post.router)
+
+# Pokazuje na sve user endopointe u user direktorijumu
 app.include_router(user.router)
+
+# Pokazuje na sve authentication endopointe u auth direktorijumu
+app.include_router(auth.router)
