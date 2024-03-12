@@ -2,6 +2,7 @@ from pydantic import BaseModel, EmailStr
 from datetime import datetime
 from typing import Optional
 
+
 # Pravljenje objekta klase Post
 class Post(BaseModel):
     title: str
@@ -55,5 +56,6 @@ class Token(BaseModel):
     access_token: str
     token_type: str
 
+
 class TokenData(BaseModel):
-    id: Optional[str] = None
+    id: Optional[int] = None

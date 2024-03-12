@@ -1,4 +1,4 @@
-from .. import models, schemas
+from .. import models, schemas, oauth2 
 from fastapi import FastAPI, Response, status, HTTPException, Depends, APIRouter
 from typing import List
 from sqlalchemy.orm import Session
@@ -17,7 +17,7 @@ def test_posts(db: Session = Depends(get_db)):
 
 # Modifikovani endpoint
 @router.get("/", response_model=List[schemas.Post])
-async def get_posts(db: Session = Depends(get_db)):
+async def get_posts(db: Session = Depends(get_db), current_user: int = Depends(oauth2.get_current_user)):
     posts = db.query(models.Post).all()
     return posts
 
@@ -26,7 +26,8 @@ async def get_posts(db: Session = Depends(get_db)):
 # Mozemo ga direktno printovati ili postovati na ./createposts
 # Prosledjivanje podataka u postgres
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=schemas.Post)
-def create_post(post: schemas.PostCreate, db: Session = Depends(get_db)):
+def create_post(post: schemas.PostCreate, db: Session = Depends(get_db), current_user: int = Depends(oauth2.get_current_user)):
+    print(current_user.email)
     new_post = models.Post(**post.dict())
     db.add(new_post)
     db.commit()
@@ -38,14 +39,14 @@ def create_post(post: schemas.PostCreate, db: Session = Depends(get_db)):
 # {id} uzima latest koji nije integer
 # Prikazati najnoviji post uz pomoc SQLAlchemy
 @router.get("/latest")
-def get_latest_post(db: Session = Depends(get_db)):
+def get_latest_post(db: Session = Depends(get_db), current_user: int = Depends(oauth2.get_current_user)):
     l_post = db.query(models.Post).order_by(desc("created_at")).first()
     return {"detail": l_post}
 
 
 # Prikaz svih unetih postova koji sadrze unetu rec u title
-@router.get("/title/{tmp}", response_model=list[schemas.Post])
-def get_posts(tmp: str, db: Session = Depends(get_db)):
+@router.get("/title/{tmp}", response_model=List[schemas.Post])
+def get_posts(tmp: str, db: Session = Depends(get_db), current_user: int = Depends(oauth2.get_current_user)):
     post = db.query(models.Post).filter(models.Post.title.contains(tmp)).all()
     if post == None:
         raise HTTPException(
@@ -70,7 +71,7 @@ def get_post(id: int, db: Session = Depends(get_db)):
 # Brisanje posta koji ima uneti id
 # Dodatno brisanje pretrazenog id-a iz baze podataka
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_post(id: int, db: Session = Depends(get_db)):
+def delete_post(id: int, db: Session = Depends(get_db),current_user: int = Depends(oauth2.get_current_user)):
     deleted_post = db.query(models.Post).filter(models.Post.id == id)
     if deleted_post == None or deleted_post.first() == None:
         raise HTTPException(
@@ -85,7 +86,7 @@ def delete_post(id: int, db: Session = Depends(get_db)):
 # Azuriranje posta koji ima uneti id
 # Dodatno azuriranje baze podataka
 @router.put("/{id}", response_model=schemas.Post)
-def update_post(id: int, post: schemas.PostCreate, db: Session = Depends(get_db)):
+def update_post(id: int, post: schemas.PostCreate, db: Session = Depends(get_db), current_user: int = Depends(oauth2.get_current_user)):
     post_query = db.query(models.Post).filter(models.Post.id == id)
     pos = post_query.first()
     if pos == None:
