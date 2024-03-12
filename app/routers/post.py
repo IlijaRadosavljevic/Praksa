@@ -3,7 +3,7 @@ from fastapi import FastAPI, Response, status, HTTPException, Depends, APIRouter
 from typing import List
 from sqlalchemy.orm import Session
 from ..database import engine, get_db
-from sqlalchemy import desc
+from sqlalchemy import desc, func
 
 router = APIRouter(prefix="/posts", tags=["Posts"])
 
@@ -43,6 +43,24 @@ def get_latest_post(db: Session = Depends(get_db), current_user: int = Depends(o
     l_post = db.query(models.Post).order_by(desc("created_at")).first()
     return {"detail": l_post}
 
+@router.get("/test")
+def test_func(db: Session = Depends(get_db)):
+    pos = db.query(models.Post.title).filter(models.Post.id < 15).all()
+    if pos == None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+    return pos
+
+@router.get("/second")
+def test_func(id:int, db: Session = Depends(get_db)):
+    pos = db.query(func.concat(models.Post.id," ",models.Post.content).label("Novo")).limit(3).all()
+    if pos == None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+    return pos
+    
 
 # Prikaz svih unetih postova koji sadrze unetu rec u title
 @router.get("/title/{tmp}", response_model=List[schemas.Post])
@@ -97,3 +115,5 @@ def update_post(id: int, post: schemas.PostCreate, db: Session = Depends(get_db)
     post_query.update(post.dict(), synchronize_session=False)
     db.commit()
     return post_query.first()
+
+
