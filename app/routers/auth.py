@@ -7,11 +7,11 @@ from fastapi.security.oauth2 import OAuth2PasswordRequestForm
 router = APIRouter(tags=["Authentication"])
 
 
-# Pravljenje login endpointa, pravljenje tajnog kljuca i pravljenje acces tokena koji se vraca uspesno ulogovanom korisniku
-@router.post("/login")
+# Pravljenje login endpointa, tajnog kljuca i acces tokena koji se vraca uspesno ulogovanom korisniku
+@router.post("/login", response_model=schemas.Token)
 def login(
     user_credentials: OAuth2PasswordRequestForm = Depends(),
-    db: session = Depends(database.get_db),
+    db: session = Depends(database.get_db)
 ):
 
     user = (
@@ -31,5 +31,5 @@ def login(
         )
 
     access_token = oauth2.create_access_token(data={"user_id": user.id})
-
-    return {"acc tok": access_token, "token_type": "bearer"}
+    
+    return {"access_token": access_token, "token_type": "bearer"}
