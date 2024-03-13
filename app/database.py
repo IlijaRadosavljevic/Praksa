@@ -9,7 +9,8 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
 
-# Dependency
+
+# Dependency za povezivanje sa bazom
 def get_db():
     db = SessionLocal()
     try:
