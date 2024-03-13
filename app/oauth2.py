@@ -11,7 +11,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 SECRET_KEY = settings.secret_key
 ALGORITHM = settings.algorithm
-ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes  
 
 
 # Metoda za kreiranje tokena koji vazi 60min
