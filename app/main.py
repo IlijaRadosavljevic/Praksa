@@ -9,7 +9,6 @@ models.Base.metadata.create_all(bind=engine)
 app = FastAPI()
 
 
-        
 # Pokazuje na sve post endopointe u post direktorijumu
 app.include_router(post.router)
 
