@@ -23,6 +23,7 @@ def create_access_token(data: dict):
 
     return encoded_jwt
 
+
 # Metoda koja dekodira JWT token i vraca atribute(samo id u ovom slucaju) objekta TokenData
 def verify_access_token(token: str, credentials_exception):
 
@@ -41,8 +42,11 @@ def verify_access_token(token: str, credentials_exception):
 
     return token_data
 
+
 # Metoda koja poziva metodu za verifikaciju tokena i vraca korisnika ciji je id jednak id koji je u payload-u tokena
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(database.get_db)):
+def get_current_user(
+    token: str = Depends(oauth2_scheme), db: Session = Depends(database.get_db)
+):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail=f"Could not validate",
@@ -51,4 +55,4 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     token = verify_access_token(token, credentials_exception)
 
     user = db.query(models.User).filter(models.User.id == token.id).first()
-    return user 
+    return user
