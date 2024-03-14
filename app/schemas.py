@@ -1,6 +1,7 @@
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
 from typing import Optional
+from pydantic.types import conint
 
 
 # Pravljenje objekta klase Post
@@ -39,6 +40,13 @@ class Post(PostBase):
         from_attributes = True
 
 
+class PostOut(BaseModel):
+    Post: Post
+    Votes: int
+    class Config:
+        from_attributes = True
+
+
 class PostPatch(BaseModel):
     id: int
     created_at: datetime
@@ -61,3 +69,8 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     id: Optional[int] = None
+
+
+class Vote(BaseModel):
+    post_id: int
+    dir: conint(ge=0, le=1)  # type: ignore
