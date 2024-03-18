@@ -32,3 +32,8 @@ app.include_router(auth.router)
 
 # Pokazuje na sve vote endopointe u vote direktorijumu
 app.include_router(vote.router)
+
+
+@app.get("/")
+def root():
+    return {"message": "Hello World"}
