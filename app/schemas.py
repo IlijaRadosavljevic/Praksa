@@ -43,6 +43,7 @@ class Post(PostBase):
 class PostOut(BaseModel):
     Post: Post
     Votes: int
+
     class Config:
         from_attributes = True
 
@@ -73,4 +74,8 @@ class TokenData(BaseModel):
 
 class Vote(BaseModel):
     post_id: int
-    dir: bool # type: ignore
+    dir: bool  # type: ignore
+
+class Comment(BaseModel):
+    post_id: int
+    content: str

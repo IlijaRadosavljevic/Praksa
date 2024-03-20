@@ -17,7 +17,7 @@ def test_posts(db: Session = Depends(get_db)):
 
 # Modifikovani endpoint
 # response_model=List[schemas.Post]
-@router.get("/",response_model=List[schemas.PostOut])
+@router.get("/", response_model=List[schemas.PostOut])
 def get_posts(
     db: Session = Depends(get_db),
     current_user: int = Depends(oauth2.get_current_user),
@@ -33,7 +33,7 @@ def get_posts(
     #     .offset(skip)
     #     .all()
     # )
-    
+
     posts = (
         db.query(models.Post, func.count(models.Vote.post_id).label("Votes"))
         .join(models.Vote, models.Vote.post_id == models.Post.id, isouter=True)
@@ -143,13 +143,13 @@ def delete_post(
     current_user: int = Depends(oauth2.get_current_user),
 ):
     deleted_post = db.query(models.Post).filter(models.Post.id == id)
-    dp = deleted_post.first().owner_id
 
     if deleted_post == None or deleted_post.first() == None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f" Post with id {id} does not exist",
         )
+    dp = deleted_post.first().owner_id
     if dp != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
