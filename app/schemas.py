@@ -4,11 +4,14 @@ from typing import Optional
 from pydantic.types import conint
 
 
-# Pravljenje objekta klase Post
-class Post(BaseModel):
-    title: str
+class Comment(BaseModel):
+    user_id: int
     content: str
-    published: bool = True
+
+class CommentIn(BaseModel):
+    post_id: int
+    content: str
+    
 
 
 class PostBase(BaseModel):
@@ -43,6 +46,7 @@ class Post(PostBase):
 class PostOut(BaseModel):
     Post: Post
     Votes: int
+    Comment : Comment
 
     class Config:
         from_attributes = True
@@ -75,7 +79,3 @@ class TokenData(BaseModel):
 class Vote(BaseModel):
     post_id: int
     dir: bool  # type: ignore
-
-class Comment(BaseModel):
-    post_id: int
-    content: str

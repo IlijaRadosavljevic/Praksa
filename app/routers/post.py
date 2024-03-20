@@ -34,15 +34,43 @@ def get_posts(
     #     .all()
     # )
 
+    
     posts = (
-        db.query(models.Post, func.count(models.Vote.post_id).label("Votes"))
+        db.query(models.Post, func.count(models.Vote.post_id).label("Votes"), models.Comment)
         .join(models.Vote, models.Vote.post_id == models.Post.id, isouter=True)
-        .group_by(models.Post.id)
+        .join(models.Comment, models.Post.id == models.Comment.post_id, isouter=True)
+        .group_by(models.Post.id, models.Comment)
         .filter(models.Post.title.contains(search))
         .limit(limit)
         .offset(skip)
         .all()
     )
+    print(posts[0][2].content)
+
+    
+    # for post in posts:
+    #     for comment in post['Post']['comments']:
+    #         print(comment['content'])
+    # for post, comments in posts:
+    #     post.comments = []
+    #     for comment in comments:
+    #         post.comments.append({
+    #             "post_id": comment.post_id,
+    #             "content": comment.content,
+    #         })
+    #     del post.Comment
+
+    # results = (
+    #     db.query(
+    #         models.Post,
+    #         models.Vote,
+    #         models.Comment,
+    #         func.count(models.Vote.post_id).label("Votes"),
+    #     )
+    #     .join(models.Vote, models.Post.id == models.Vote.post_id, isouter=True)
+    #     .join(models.Comment, models.Post.id == models.Comment.post_id, isouter=True)
+    #     .group_by(models.Post.id)
+    # )
     # print(results)
     return posts
 
