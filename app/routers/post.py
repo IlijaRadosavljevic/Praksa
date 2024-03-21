@@ -143,13 +143,13 @@ def delete_post(
     current_user: int = Depends(oauth2.get_current_user),
 ):
     deleted_post = db.query(models.Post).filter(models.Post.id == id)
-    dp = deleted_post.first().owner_id
 
     if deleted_post == None or deleted_post.first() == None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f" Post with id {id} does not exist",
         )
+    dp = deleted_post.first().owner_id
     if dp != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

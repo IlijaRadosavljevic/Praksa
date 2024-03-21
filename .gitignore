@@ -3,6 +3,9 @@
 __pycache__
 *.py[cod]
 *$py.class
+
+
+
 # C extensions
 *.so
 # Distribution / packaging
@@ -124,3 +127,17 @@ dmypy.json
 .pytype/
 # Cython debug symbols
 cython_debug/
+
+tests/__init__.py
+
+app/__pycache__
+
+docker-compose.yml
+
+app/__pycache__/__init__.cpython-310.pyc
+
+Dockerfile
+
+.vscode/tasks.json
+
+.vscode/launch.json
