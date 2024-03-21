@@ -8,10 +8,14 @@ class Comment(BaseModel):
     user_id: int
     content: str
 
+
 class CommentIn(BaseModel):
     post_id: int
     content: str
-    
+
+
+class CommentUpdate(BaseModel):
+    content: str
 
 
 class PostBase(BaseModel):
@@ -46,7 +50,7 @@ class Post(PostBase):
 class PostOut(BaseModel):
     Post: Post
     Votes: int
-    Comment : Comment
+    Comment: list[Comment]
 
     class Config:
         from_attributes = True

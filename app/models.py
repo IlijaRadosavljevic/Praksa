@@ -44,12 +44,10 @@ class Vote(Base):
 class Comment(Base):
     __tablename__ = "comment"
 
-    user_id = Column(
-        Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
-    )
-    post_id = Column(
-        Integer, ForeignKey("posts.id", ondelete="CASCADE"), primary_key=True
-    )
+    comment_id = Column(Integer, primary_key=True, nullable=False)
+
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
+    post_id = Column(Integer, ForeignKey("posts.id", ondelete="CASCADE"))
     content = Column(String, nullable=False)
 
     created_at = Column(

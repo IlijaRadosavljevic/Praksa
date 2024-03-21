@@ -106,6 +106,7 @@ def test_posts(test_user, session, test_user2):
         return models.Post(**post)
 
     post_map = map(create_post_model, posts_data)
+
     posts = list(post_map)
 
     session.add_all(posts)
@@ -118,3 +119,39 @@ def test_posts(test_user, session, test_user2):
     posts = session.query(models.Post).all()
 
     return posts
+
+
+@pytest.fixture
+def test_comments(test_user, session, test_user2):
+    comments_data = [
+        {
+            "user_id": test_user2["id"],
+            "content": "firsto content",
+        },
+        {
+            "user_id": test_user["id"],
+            "content": "firsto content",
+        },
+        {
+            "user_id": test_user["id"],
+            "content": "firsto content",
+        },
+        {
+            "user_id": test_user["id"],
+            "content": "firsto content",
+        },
+    ]
+
+    def create_comment_model(post):
+        return models.Comment(**post)
+
+    post_map = map(create_comment_model, comments_data)
+
+    comments = list(post_map)
+
+    session.add_all(comments)
+    session.commit()
+
+    comments = session.query(models.Comment).all()
+
+    return comments

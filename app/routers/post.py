@@ -26,28 +26,49 @@ def get_posts(
     search: Optional[str] = "",
 ):
 
-    # posts = (
-    #     db.query(models.Post)
-    #     .filter(models.Post.title.contains(search))
-    #     .limit(limit)
-    #     .offset(skip)
-    #     .all()
-    # )
-
-    
     posts = (
-        db.query(models.Post, func.count(models.Vote.post_id).label("Votes"), models.Comment)
+        db.query(models.Post, func.count(models.Vote.post_id).label("Votes"))
         .join(models.Vote, models.Vote.post_id == models.Post.id, isouter=True)
-        .join(models.Comment, models.Post.id == models.Comment.post_id, isouter=True)
-        .group_by(models.Post.id, models.Comment)
+        .group_by(models.Post.id)
         .filter(models.Post.title.contains(search))
         .limit(limit)
         .offset(skip)
         .all()
     )
-    print(posts[0][2].content)
 
-    
+    post_comments = {}
+    for post in posts:
+        post_id = post[0].id
+        comments = (
+            db.query(models.Comment).filter(models.Comment.post_id == post_id).all()
+        )
+        post_comments[post_id] = comments
+
+    post_output = []
+    for post in posts:
+        post_output.append(
+            {
+                "Post": post[0],
+                "Votes": post[1],
+                "Comment": [comment.__dict__ for comment in post_comments[post[0].id]],
+            }
+        )
+
+    return post_output
+
+    # return posts
+
+    # post_out_list = []
+    # for post in posts:
+    #     post_out = schemas.PostOut(
+    #         **post.__dict__,
+    #         votes=len(posts.Votes),
+    #         comments=[comment.__dict__ for comment in post_comments[post[0].id]]
+    #     )
+    #     post_out_list.append(post_out)
+
+    # return post_out_list
+
     # for post in posts:
     #     for comment in post['Post']['comments']:
     #         print(comment['content'])
@@ -72,7 +93,6 @@ def get_posts(
     #     .group_by(models.Post.id)
     # )
     # print(results)
-    return posts
 
 
 # Post metoda, pravi se variable payload koji je dictionary json-a iz body-ja postmana.
@@ -147,19 +167,27 @@ def get_posts(
 def get_post(id: int, db: Session = Depends(get_db)):
     # post = db.query(models.Post).filter(models.Post.id == id).first()
 
-    post = (
+    posts = (
         db.query(models.Post, func.count(models.Vote.post_id).label("Votes"))
         .join(models.Vote, models.Vote.post_id == models.Post.id, isouter=True)
         .group_by(models.Post.id)
         .filter(models.Post.id == id)
         .first()
     )
-    if not post:
+    if not posts:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f" Post with id {id} was not found",
         )
-    return post
+
+    comments = (
+        db.query(models.Comment).filter(models.Comment.post_id == posts[0].id).all()
+    )
+    post_comments = comments
+
+    post_output = {"Post": posts[0], "Votes": posts[1], "Comment": post_comments}
+
+    return post_output
 
 
 # Brisanje posta koji ima uneti id
@@ -207,7 +235,7 @@ def update_post(
     if pos.owner_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Not authorized to perfom action",
+            detail=f"Not authorized to perform action",
         )
     post_query.update(post.dict(), synchronize_session=False)
     db.commit()
