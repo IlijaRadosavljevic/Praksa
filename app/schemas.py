@@ -4,18 +4,16 @@ from typing import Optional
 from pydantic.types import conint
 
 
-class Comment(BaseModel):
+class CommentBase(BaseModel):
+    content: str
+
+
+class Comment(CommentBase):
     user_id: int
-    content: str
 
 
-class CommentIn(BaseModel):
+class CommentIn(CommentBase):
     post_id: int
-    content: str
-
-
-class CommentUpdate(BaseModel):
-    content: str
 
 
 class PostBase(BaseModel):

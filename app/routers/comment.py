@@ -86,7 +86,7 @@ def delete_comm(
 @router.put("/{id}")
 def update_comm(
     id: int,
-    comm: schemas.CommentUpdate,
+    comm: schemas.CommentBase,
     db: Session = Depends(get_db),
     current_user: int = Depends(oauth2.get_current_user),
 ):

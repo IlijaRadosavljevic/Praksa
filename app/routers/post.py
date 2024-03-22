@@ -56,44 +56,6 @@ def get_posts(
 
     return post_output
 
-    # return posts
-
-    # post_out_list = []
-    # for post in posts:
-    #     post_out = schemas.PostOut(
-    #         **post.__dict__,
-    #         votes=len(posts.Votes),
-    #         comments=[comment.__dict__ for comment in post_comments[post[0].id]]
-    #     )
-    #     post_out_list.append(post_out)
-
-    # return post_out_list
-
-    # for post in posts:
-    #     for comment in post['Post']['comments']:
-    #         print(comment['content'])
-    # for post, comments in posts:
-    #     post.comments = []
-    #     for comment in comments:
-    #         post.comments.append({
-    #             "post_id": comment.post_id,
-    #             "content": comment.content,
-    #         })
-    #     del post.Comment
-
-    # results = (
-    #     db.query(
-    #         models.Post,
-    #         models.Vote,
-    #         models.Comment,
-    #         func.count(models.Vote.post_id).label("Votes"),
-    #     )
-    #     .join(models.Vote, models.Post.id == models.Vote.post_id, isouter=True)
-    #     .join(models.Comment, models.Post.id == models.Comment.post_id, isouter=True)
-    #     .group_by(models.Post.id)
-    # )
-    # print(results)
-
 
 # Post metoda, pravi se variable payload koji je dictionary json-a iz body-ja postmana.
 # Mozemo ga direktno printovati ili postovati na ./createposts
