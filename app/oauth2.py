@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 
 from .config import settings
 from . import schemas, database, models
-from fastapi import FastAPI, Response, status, HTTPException, Depends
+from fastapi import status, HTTPException, Depends
 from fastapi.security.oauth2 import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
@@ -14,7 +14,6 @@ ALGORITHM = settings.algorithm
 ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
 
 
-# Metoda za kreiranje tokena koji vazi 60min
 def create_access_token(data: dict):
     to_encode = data.copy()
 
@@ -26,7 +25,6 @@ def create_access_token(data: dict):
     return encoded_jwt
 
 
-# Metoda koja dekodira JWT token i vraca atribute(samo id u ovom slucaju) objekta TokenData
 def verify_access_token(token: str, credentials_exception):
 
     try:
@@ -45,7 +43,6 @@ def verify_access_token(token: str, credentials_exception):
     return token_data
 
 
-# Metoda koja poziva metodu za verifikaciju tokena i vraca korisnika ciji je id jednak id koji je u payload-u tokena
 def get_current_user(
     token: str = Depends(oauth2_scheme), db: Session = Depends(database.get_db)
 ):

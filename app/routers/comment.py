@@ -1,17 +1,14 @@
 from .. import models, schemas, oauth2
 from fastapi import Response, status, HTTPException, Depends, APIRouter
-from typing import List, Optional
+from typing import List
 from sqlalchemy.orm import Session
 from ..database import engine, get_db
-from sqlalchemy import desc, func
-
-from app import database
 
 
 router = APIRouter(prefix="/comments", tags=["Comments"])
 
 
-@router.get("/")
+@router.get("/", response_model=List[schemas.Comment])
 def get_comms(
     db: Session = Depends(get_db),
     current_user: int = Depends(oauth2.get_current_user),
@@ -21,7 +18,7 @@ def get_comms(
     return comms
 
 
-@router.get("/{id}")
+@router.get("/{id}", response_model=schemas.Comment)
 def get_one_comm(
     id: int,
     db: Session = Depends(get_db),
@@ -38,7 +35,7 @@ def get_one_comm(
     return comm
 
 
-@router.post("/")
+@router.post("/", response_model=schemas.Comment)
 def comm(
     comm: schemas.CommentIn,
     db: Session = Depends(get_db),
@@ -51,7 +48,7 @@ def comm(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Post with id {comm.post_id} does not exist",
         )
-    new_comm = models.Comment(user_id=current_user.id, **comm.dict())
+    new_comm = models.Comment(user_id=current_user.id, **comm.model_dump())
     db.add(new_comm)
     db.commit()
     db.refresh(new_comm)
@@ -83,7 +80,7 @@ def delete_comm(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.put("/{id}")
+@router.put("/{id}", response_model=schemas.Comment)
 def update_comm(
     id: int,
     comm: schemas.CommentBase,
@@ -94,14 +91,13 @@ def update_comm(
     if comment.first() == None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f" Post with id {id} does not exist",
+            detail=f" Comment with id {id} does not exist",
         )
-    print(comment.first())
     if comment.first().user_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Not authorized to perform action",
         )
-    comment.update(comm.dict(), synchronize_session=False)
+    comment.update(comm.model_dump(), synchronize_session=False)
     db.commit()
     return comment.first()

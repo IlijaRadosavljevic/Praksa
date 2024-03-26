@@ -1,9 +1,6 @@
 from .. import models, schemas, oauth2, database
-from fastapi import Response, status, HTTPException, Depends, APIRouter
-from typing import List, Optional
+from fastapi import status, HTTPException, Depends, APIRouter
 from sqlalchemy.orm import Session
-from ..database import engine, get_db
-from sqlalchemy import desc, func
 
 
 router = APIRouter(prefix="/vote", tags=["Vote"])
@@ -15,12 +12,10 @@ def vote(
     db: Session = Depends(database.get_db),
     current_user: int = Depends(oauth2.get_current_user),
 ):
-    # print('ID trenutnog korisnika je ' + str(current_user.id))
-    # print('ID posta je '+ str(vote.post_id))
+
     vote_q = (
         db.query(models.Post.owner_id).filter(models.Post.id == vote.post_id).first()
     )
-    # print('Id vlasnika posta je ' + str(vote_q[0]))
 
     post = db.query(models.Post).filter(models.Post.id == vote.post_id).first()
 

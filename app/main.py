@@ -13,7 +13,7 @@ origins = [
     "https://www.google.com",
 ]
 
-# Postavljanje CORS-a
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -21,16 +21,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# Pokazuje na sve post endopointe u post direktorijumu
+
 app.include_router(post.router)
 
-# Pokazuje na sve user endopointe u user direktorijumu
 app.include_router(user.router)
 
-# Pokazuje na sve authentication endopointe u auth direktorijumu
 app.include_router(auth.router)
 
-# Pokazuje na sve vote endopointe u vote direktorijumu
 app.include_router(vote.router)
 
 app.include_router(comment.router)

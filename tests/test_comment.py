@@ -1,5 +1,5 @@
 import pytest
-from app import models, schemas
+from app import schemas
 
 
 def test_get_all_comments(authorized_client, test_comments):

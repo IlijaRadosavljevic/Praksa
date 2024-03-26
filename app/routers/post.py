@@ -2,21 +2,19 @@ from .. import models, schemas, oauth2
 from fastapi import Response, status, HTTPException, Depends, APIRouter
 from typing import List, Optional
 from sqlalchemy.orm import Session
-from ..database import engine, get_db
+from ..database import get_db
 from sqlalchemy import desc, func
+
 
 router = APIRouter(prefix="/posts", tags=["Posts"])
 
 
-# Test endpoint za pristup bazi podataka preko Pytona bez direktnih SQL query-ja
 @router.get("/sqlalchemy")
 def test_posts(db: Session = Depends(get_db)):
     posts = db.query(models.Post).all()
     return posts
 
 
-# Modifikovani endpoint
-# response_model=List[schemas.Post]
 @router.get("/", response_model=List[schemas.PostOut])
 def get_posts(
     db: Session = Depends(get_db),
@@ -31,18 +29,11 @@ def get_posts(
         .join(models.Vote, models.Vote.post_id == models.Post.id, isouter=True)
         .group_by(models.Post.id)
         .filter(models.Post.title.contains(search))
+        .order_by(models.Post.id)
         .limit(limit)
         .offset(skip)
         .all()
     )
-
-    post_comments = {}
-    for post in posts:
-        post_id = post[0].id
-        comments = (
-            db.query(models.Comment).filter(models.Comment.post_id == post_id).all()
-        )
-        post_comments[post_id] = comments
 
     post_output = []
     for post in posts:
@@ -50,32 +41,26 @@ def get_posts(
             {
                 "Post": post[0],
                 "Votes": post[1],
-                "Comment": [comment.__dict__ for comment in post_comments[post[0].id]],
+                "Comment": [comment.__dict__ for comment in post[0].comments],
             }
         )
 
     return post_output
 
 
-# Post metoda, pravi se variable payload koji je dictionary json-a iz body-ja postmana.
-# Mozemo ga direktno printovati ili postovati na ./createposts
-# Prosledjivanje podataka u postgres
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=schemas.Post)
 def create_post(
     post: schemas.PostCreate,
     db: Session = Depends(get_db),
     current_user: int = Depends(oauth2.get_current_user),
 ):
-    new_post = models.Post(owner_id=current_user.id, **post.dict())
+    new_post = models.Post(owner_id=current_user.id, **post.model_dump())
     db.add(new_post)
     db.commit()
     db.refresh(new_post)
     return new_post
 
 
-# Uzimanje poslednjeg dodatog posta, mora se staviti iznad pretrazivanja po id jer za vrednost
-# {id} uzima latest koji nije integer
-# Prikazati najnoviji post uz pomoc SQLAlchemy
 @router.get("/latest")
 def get_latest_post(
     db: Session = Depends(get_db), current_user: int = Depends(oauth2.get_current_user)
@@ -108,7 +93,6 @@ def test_func(db: Session = Depends(get_db)):
     return pos
 
 
-# Prikaz svih unetih postova koji sadrze unetu rec u title
 @router.get("/title/{tmp}", response_model=List[schemas.Post])
 def get_posts(
     tmp: str,
@@ -124,10 +108,8 @@ def get_posts(
     return post
 
 
-# Pretrazivanje postova po id
 @router.get("/{id}", response_model=schemas.PostOut)
 def get_post(id: int, db: Session = Depends(get_db)):
-    # post = db.query(models.Post).filter(models.Post.id == id).first()
 
     posts = (
         db.query(models.Post, func.count(models.Vote.post_id).label("Votes"))
@@ -145,15 +127,12 @@ def get_post(id: int, db: Session = Depends(get_db)):
     comments = (
         db.query(models.Comment).filter(models.Comment.post_id == posts[0].id).all()
     )
-    post_comments = comments
 
-    post_output = {"Post": posts[0], "Votes": posts[1], "Comment": post_comments}
+    post_output = {"Post": posts[0], "Votes": posts[1], "Comment": comments}
 
     return post_output
 
 
-# Brisanje posta koji ima uneti id
-# Dodatno brisanje pretrazenog id-a iz baze podataka
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_post(
     id: int,
@@ -178,8 +157,6 @@ def delete_post(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-# Azuriranje posta koji ima uneti id
-# Dodatno azuriranje baze podataka
 @router.put("/{id}", response_model=schemas.Post)
 def update_post(
     id: int,
@@ -199,6 +176,6 @@ def update_post(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Not authorized to perform action",
         )
-    post_query.update(post.dict(), synchronize_session=False)
+    post_query.update(post.model_dump(), synchronize_session=False)
     db.commit()
     return post_query.first()

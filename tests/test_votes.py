@@ -41,5 +41,4 @@ def test_vote_unauthorized_user(client, test_posts):
 
 def test_lame_user(authorized_client, test_posts):
     res = authorized_client.post("/vote/", json={"post_id": test_posts[0].id, "dir": 1})
-    print(res.json())
     assert res.status_code == 403
