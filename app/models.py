@@ -17,7 +17,7 @@ class Post(Base):
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     owner = relationship("User")
-    stories = relationship("Comment")
+    comments = relationship("Comment", back_populates="post")
 
 
 class User(Base):
@@ -41,18 +41,17 @@ class Vote(Base):
         Integer, ForeignKey("posts.id", ondelete="CASCADE"), primary_key=True
     )
 
+
 class Comment(Base):
     __tablename__ = "comment"
 
-    user_id = Column(
-        Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
-    )
-    post_id = Column(
-        Integer, ForeignKey("posts.id", ondelete="CASCADE"), primary_key=True
-    )
+    comment_id = Column(Integer, primary_key=True, nullable=False)
+
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
+    post_id = Column(Integer, ForeignKey("posts.id", ondelete="CASCADE"))
     content = Column(String, nullable=False)
-    
+
     created_at = Column(
         TIMESTAMP(timezone=True), nullable=False, server_default=text("now()")
     )
-    
+    post = relationship("Post", back_populates="comments")
