@@ -2,76 +2,98 @@ from .. import models, schemas, oauth2
 from fastapi import Response, status, HTTPException, Depends, APIRouter
 from typing import List, Optional
 from sqlalchemy.orm import Session
-from ..database import engine, get_db
+from ..database import get_db
 from sqlalchemy import desc, func
+
 
 router = APIRouter(prefix="/posts", tags=["Posts"])
 
 
-# Test endpoint za pristup bazi podataka preko Pytona bez direktnih SQL query-ja
 @router.get("/sqlalchemy")
 def test_posts(db: Session = Depends(get_db)):
     posts = db.query(models.Post).all()
     return posts
 
 
-# Modifikovani endpoint
-# response_model=List[schemas.Post]
-@router.get("/",response_model=List[schemas.PostOut])
+@router.get("/", response_model=List[schemas.Post])
 def get_posts(
     db: Session = Depends(get_db),
     current_user: int = Depends(oauth2.get_current_user),
-    limit: int = 10,
-    skip: int = 0,
-    search: Optional[str] = "",
 ):
 
-    # posts = (
-    #     db.query(models.Post)
-    #     .filter(models.Post.title.contains(search))
-    #     .limit(limit)
-    #     .offset(skip)
-    #     .all()
-    # )
-    
     posts = (
-        db.query(models.Post, func.count(models.Vote.post_id).label("Votes"))
+        db.query(models.Post, func.count(models.Vote.post_id).label("Votes"), models.Comment)
         .join(models.Vote, models.Vote.post_id == models.Post.id, isouter=True)
-        .group_by(models.Post.id)
-        .filter(models.Post.title.contains(search))
-        .limit(limit)
-        .offset(skip)
+        .join(models.Comment, models.Comment.post_id == models.Post.id, isouter=True)
+        .group_by(models.Post.id, models.Comment.comment_id)
+        .order_by((models.Post.id))
         .all()
     )
-    # print(results)
-    return posts
+ 
+    posts_list = []
+    for post in posts:
+        post_item = schemas.Post(
+            title=post[0].title,
+            content=post[0].content,
+            published=post[0].published,
+            id=post[0].id,
+            created_at=post[0].created_at,
+            owner_id=post[0].owner_id,
+            owner=post[0].owner,
+            comment=[],
+            votes_count=post[1]
+        )   
+        post_item.comment = create_comments(posts, post_id=post[0].id)
+        if post_item not in posts_list:
+            posts_list.append(post_item)
+
+    return posts_list
 
 
-# Post metoda, pravi se variable payload koji je dictionary json-a iz body-ja postmana.
-# Mozemo ga direktno printovati ili postovati na ./createposts
-# Prosledjivanje podataka u postgres
-@router.post("/", status_code=status.HTTP_201_CREATED, response_model=schemas.Post)
+@router.post("/", status_code=status.HTTP_201_CREATED,response_model=schemas.Post)
 def create_post(
     post: schemas.PostCreate,
     db: Session = Depends(get_db),
     current_user: int = Depends(oauth2.get_current_user),
 ):
-    new_post = models.Post(owner_id=current_user.id, **post.dict())
+    new_post = models.Post(owner_id=current_user.id, **post.model_dump())
     db.add(new_post)
     db.commit()
     db.refresh(new_post)
     return new_post
 
 
-# Uzimanje poslednjeg dodatog posta, mora se staviti iznad pretrazivanja po id jer za vrednost
-# {id} uzima latest koji nije integer
-# Prikazati najnoviji post uz pomoc SQLAlchemy
 @router.get("/latest")
 def get_latest_post(
     db: Session = Depends(get_db), current_user: int = Depends(oauth2.get_current_user)
 ):
-    l_post = db.query(models.Post).order_by(desc("created_at")).first()
-    return {"detail": l_post}
+    post = (
+        db.query(
+            models.Post, func.count(models.Vote.post_id).label("Votes"), models.Comment
+        )
+        .join(models.Vote, models.Vote.post_id == models.Post.id, isouter=True)
+        .join(models.Comment, models.Comment.post_id == models.Post.id, isouter=True)
+        .group_by(models.Post.id, models.Comment.comment_id)
+        .order_by(desc(models.Post.created_at))
+        .first()
+    )
+    post_item = schemas.Post(
+            title=post[0].title,
+            content=post[0].content,
+            published=post[0].published,
+            id=post[0].id,
+            created_at=post[0].created_at,
+            owner_id=post[0].owner_id,
+            owner=post[0].owner,
+            comment=[],
+            votes_count=post[1],
+        )
+    if not post[2]:
+        post_item.comment = []
+    else: 
+        post_item.comment = schemas.Comment(content=post[2].content, user_id=post[2].user_id, post_id=post[2].post_id)
+
+    return post_item
 
 
 @router.get("/test")
@@ -98,7 +120,6 @@ def test_func(db: Session = Depends(get_db)):
     return pos
 
 
-# Prikaz svih unetih postova koji sadrze unetu rec u title
 @router.get("/title/{tmp}", response_model=List[schemas.Post])
 def get_posts(
     tmp: str,
@@ -114,28 +135,42 @@ def get_posts(
     return post
 
 
-# Pretrazivanje postova po id
-@router.get("/{id}", response_model=schemas.PostOut)
+@router.get("/{id}", response_model=schemas.Post)
 def get_post(id: int, db: Session = Depends(get_db)):
-    # post = db.query(models.Post).filter(models.Post.id == id).first()
 
     post = (
-        db.query(models.Post, func.count(models.Vote.post_id).label("Votes"))
+        db.query(
+            models.Post, func.count(models.Vote.post_id).label("Votes"), models.Comment
+        )
         .join(models.Vote, models.Vote.post_id == models.Post.id, isouter=True)
-        .group_by(models.Post.id)
+        .join(models.Comment, models.Comment.post_id == models.Post.id, isouter=True)
+        .group_by(models.Post.id, models.Comment.comment_id)
         .filter(models.Post.id == id)
         .first()
     )
+    comms = (db.query(models.Comment).filter(models.Comment.post_id == id).all())
     if not post:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f" Post with id {id} was not found",
         )
-    return post
+    post_item = schemas.Post(
+            title=post[0].title,
+            content=post[0].content,
+            published=post[0].published,
+            id=post[0].id,
+            created_at=post[0].created_at,
+            owner_id=post[0].owner_id,
+            owner=post[0].owner,
+            comment=[],
+            votes_count=post[1],
+        )
+    if not post[2]:
+        post_item.comment = []
+    else:
+        post_item.comment = comms
+    return post_item
 
-
-# Brisanje posta koji ima uneti id
-# Dodatno brisanje pretrazenog id-a iz baze podataka
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_post(
     id: int,
@@ -143,13 +178,13 @@ def delete_post(
     current_user: int = Depends(oauth2.get_current_user),
 ):
     deleted_post = db.query(models.Post).filter(models.Post.id == id)
-    dp = deleted_post.first().owner_id
 
     if deleted_post == None or deleted_post.first() == None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f" Post with id {id} does not exist",
         )
+    dp = deleted_post.first().owner_id
     if dp != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -160,9 +195,7 @@ def delete_post(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-# Azuriranje posta koji ima uneti id
-# Dodatno azuriranje baze podataka
-@router.put("/{id}", response_model=schemas.Post)
+@router.put("/{id}")
 def update_post(
     id: int,
     post: schemas.PostCreate,
@@ -179,8 +212,17 @@ def update_post(
     if pos.owner_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Not authorized to perfom action",
+            detail=f"Not authorized to perform action",
         )
-    post_query.update(post.dict(), synchronize_session=False)
+    post_query.update(post.model_dump(), synchronize_session=False)
     db.commit()
-    return post_query.first()
+    return {"detail":"Post updated successfully"}
+
+
+
+def create_comments(posts, post_id):
+        comments_list = []
+        for post in posts:
+            if post[0].id == post_id and post[2]:
+                comments_list.append(schemas.Comment(content=post[2].content, user_id=post[2].user_id, post_id=post[2].post_id))
+        return comments_list

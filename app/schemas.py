@@ -1,14 +1,19 @@
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
 from typing import Optional
-from pydantic.types import conint
 
 
-# Pravljenje objekta klase Post
-class Post(BaseModel):
-    title: str
+class CommentBase(BaseModel):
     content: str
-    published: bool = True
+
+
+class Comment(CommentBase):
+    user_id: int
+    post_id: int
+
+
+class CommentIn(CommentBase):
+    post_id: int
 
 
 class PostBase(BaseModel):
@@ -35,6 +40,8 @@ class Post(PostBase):
     created_at: datetime
     owner_id: int
     owner: UserOut
+    votes_count: Optional[int] = None
+    comment: Optional[list[Comment]] = None
 
     class Config:
         from_attributes = True
@@ -42,7 +49,7 @@ class Post(PostBase):
 
 class PostOut(BaseModel):
     Post: Post
-    Votes: int
+
     class Config:
         from_attributes = True
 
@@ -73,4 +80,4 @@ class TokenData(BaseModel):
 
 class Vote(BaseModel):
     post_id: int
-    dir: conint(ge=0, le=1)  # type: ignore
+    dir: bool

@@ -7,7 +7,6 @@ from fastapi.security.oauth2 import OAuth2PasswordRequestForm
 router = APIRouter(tags=["Authentication"])
 
 
-# Pravljenje login endpointa, tajnog kljuca i acces tokena koji se vraca uspesno ulogovanom korisniku
 @router.post("/login", response_model=schemas.Token)
 def login(
     user_credentials: OAuth2PasswordRequestForm = Depends(),
