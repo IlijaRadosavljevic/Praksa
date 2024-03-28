@@ -15,40 +15,42 @@ def test_posts(db: Session = Depends(get_db)):
     return posts
 
 
-@router.get("/", response_model=List[schemas.PostOut])
+@router.get("/", response_model=List[schemas.Post])
 def get_posts(
     db: Session = Depends(get_db),
     current_user: int = Depends(oauth2.get_current_user),
-    limit: int = 10,
-    skip: int = 0,
-    search: Optional[str] = "",
 ):
 
     posts = (
-        db.query(models.Post, func.count(models.Vote.post_id).label("Votes"))
+        db.query(models.Post, func.count(models.Vote.post_id).label("Votes"), models.Comment)
         .join(models.Vote, models.Vote.post_id == models.Post.id, isouter=True)
-        .group_by(models.Post.id)
-        .filter(models.Post.title.contains(search))
-        .order_by(models.Post.id)
-        .limit(limit)
-        .offset(skip)
+        .join(models.Comment, models.Comment.post_id == models.Post.id, isouter=True)
+        .group_by(models.Post.id, models.Comment.comment_id)
+        .order_by((models.Post.id))
         .all()
     )
-
-    post_output = []
+ 
+    posts_list = []
     for post in posts:
-        post_output.append(
-            {
-                "Post": post[0],
-                "Votes": post[1],
-                "Comment": [comment.__dict__ for comment in post[0].comments],
-            }
-        )
+        post_item = schemas.Post(
+            title=post[0].title,
+            content=post[0].content,
+            published=post[0].published,
+            id=post[0].id,
+            created_at=post[0].created_at,
+            owner_id=post[0].owner_id,
+            owner=post[0].owner,
+            comment=[],
+            votes_count=post[1]
+        )   
+        post_item.comment = create_comments(posts, post_id=post[0].id)
+        if post_item not in posts_list:
+            posts_list.append(post_item)
 
-    return post_output
+    return posts_list
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED, response_model=schemas.Post)
+@router.post("/", status_code=status.HTTP_201_CREATED,response_model=schemas.Post)
 def create_post(
     post: schemas.PostCreate,
     db: Session = Depends(get_db),
@@ -65,8 +67,33 @@ def create_post(
 def get_latest_post(
     db: Session = Depends(get_db), current_user: int = Depends(oauth2.get_current_user)
 ):
-    l_post = db.query(models.Post).order_by(desc("created_at")).first()
-    return {"detail": l_post}
+    post = (
+        db.query(
+            models.Post, func.count(models.Vote.post_id).label("Votes"), models.Comment
+        )
+        .join(models.Vote, models.Vote.post_id == models.Post.id, isouter=True)
+        .join(models.Comment, models.Comment.post_id == models.Post.id, isouter=True)
+        .group_by(models.Post.id, models.Comment.comment_id)
+        .order_by(desc(models.Post.created_at))
+        .first()
+    )
+    post_item = schemas.Post(
+            title=post[0].title,
+            content=post[0].content,
+            published=post[0].published,
+            id=post[0].id,
+            created_at=post[0].created_at,
+            owner_id=post[0].owner_id,
+            owner=post[0].owner,
+            comment=[],
+            votes_count=post[1],
+        )
+    if not post[2]:
+        post_item.comment = []
+    else: 
+        post_item.comment = schemas.Comment(content=post[2].content, user_id=post[2].user_id, post_id=post[2].post_id)
+
+    return post_item
 
 
 @router.get("/test")
@@ -108,30 +135,41 @@ def get_posts(
     return post
 
 
-@router.get("/{id}", response_model=schemas.PostOut)
+@router.get("/{id}", response_model=schemas.Post)
 def get_post(id: int, db: Session = Depends(get_db)):
 
-    posts = (
-        db.query(models.Post, func.count(models.Vote.post_id).label("Votes"))
+    post = (
+        db.query(
+            models.Post, func.count(models.Vote.post_id).label("Votes"), models.Comment
+        )
         .join(models.Vote, models.Vote.post_id == models.Post.id, isouter=True)
-        .group_by(models.Post.id)
+        .join(models.Comment, models.Comment.post_id == models.Post.id, isouter=True)
+        .group_by(models.Post.id, models.Comment.comment_id)
         .filter(models.Post.id == id)
         .first()
     )
-    if not posts:
+    comms = (db.query(models.Comment).filter(models.Comment.post_id == id).all())
+    if not post:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f" Post with id {id} was not found",
         )
-
-    comments = (
-        db.query(models.Comment).filter(models.Comment.post_id == posts[0].id).all()
-    )
-
-    post_output = {"Post": posts[0], "Votes": posts[1], "Comment": comments}
-
-    return post_output
-
+    post_item = schemas.Post(
+            title=post[0].title,
+            content=post[0].content,
+            published=post[0].published,
+            id=post[0].id,
+            created_at=post[0].created_at,
+            owner_id=post[0].owner_id,
+            owner=post[0].owner,
+            comment=[],
+            votes_count=post[1],
+        )
+    if not post[2]:
+        post_item.comment = []
+    else:
+        post_item.comment = comms
+    return post_item
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_post(
@@ -157,7 +195,7 @@ def delete_post(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.put("/{id}", response_model=schemas.Post)
+@router.put("/{id}")
 def update_post(
     id: int,
     post: schemas.PostCreate,
@@ -178,4 +216,13 @@ def update_post(
         )
     post_query.update(post.model_dump(), synchronize_session=False)
     db.commit()
-    return post_query.first()
+    return {"detail":"Post updated successfully"}
+
+
+
+def create_comments(posts, post_id):
+        comments_list = []
+        for post in posts:
+            if post[0].id == post_id and post[2]:
+                comments_list.append(schemas.Comment(content=post[2].content, user_id=post[2].user_id, post_id=post[2].post_id))
+        return comments_list

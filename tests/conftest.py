@@ -111,21 +111,25 @@ def test_posts(test_user, session, test_user2):
 
 
 @pytest.fixture
-def test_comments(test_user, session, test_user2):
+def test_comments(test_user, session, test_user2,test_posts):
     comments_data = [
-        {
+        {   
+            "post_id": test_posts[0].id,
             "user_id": test_user2["id"],
             "content": "firsto content",
         },
         {
+            "post_id": test_posts[0].id,
             "user_id": test_user["id"],
             "content": "firsto content",
         },
         {
+            "post_id": test_posts[0].id,
             "user_id": test_user["id"],
             "content": "firsto content",
         },
         {
+            "post_id": test_posts[0].id,
             "user_id": test_user["id"],
             "content": "firsto content",
         },

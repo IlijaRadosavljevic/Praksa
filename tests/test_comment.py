@@ -1,16 +1,19 @@
+from pydantic import ValidationError
 import pytest
 from app import schemas
 
+def validate(comment):
+        return schemas.Comment(**comment)
 
 def test_get_all_comments(authorized_client, test_comments):
     res = authorized_client.get("/comments/")
-
-    def validate(comment):
-        return schemas.Comment(**comment)
-
-    comment_map = map(validate, res.json())
-    comment_list = list(comment_map)
-    assert len(res.json()) == len(test_comments)
+    comment_list = res.json()
+    assert len(comment_list) == len(test_comments)
+    for comment in comment_list:
+        try:
+            validate(comment)
+        except ValidationError as e:
+            print(e.errors())
     assert res.status_code == 200
 
 

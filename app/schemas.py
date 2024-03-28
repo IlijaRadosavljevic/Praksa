@@ -9,6 +9,7 @@ class CommentBase(BaseModel):
 
 class Comment(CommentBase):
     user_id: int
+    post_id: int
 
 
 class CommentIn(CommentBase):
@@ -39,6 +40,8 @@ class Post(PostBase):
     created_at: datetime
     owner_id: int
     owner: UserOut
+    votes_count: Optional[int] = None
+    comment: Optional[list[Comment]] = None
 
     class Config:
         from_attributes = True
@@ -46,8 +49,6 @@ class Post(PostBase):
 
 class PostOut(BaseModel):
     Post: Post
-    Votes: int
-    Comment: list[Comment]
 
     class Config:
         from_attributes = True
